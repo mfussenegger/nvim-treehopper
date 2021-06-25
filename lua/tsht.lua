@@ -57,8 +57,7 @@ function M.nodes()
     parent = parent:parent()
   end
   vim.cmd('redraw')
-  local h = nil
-  while h == nil do
+  while true do
     local ok, keynum = pcall(vim.fn.getchar)
     if not ok then
       api.nvim_buf_clear_namespace(0, ns, 0, -1)
@@ -71,7 +70,7 @@ function M.nodes()
         local start_row, start_col, end_row, end_col = node:range()
         api.nvim_win_set_cursor(0, { start_row + 1, start_col })
         vim.cmd('normal! v')
-        api.nvim_win_set_cursor(0, { end_row + 1, end_col })
+        api.nvim_win_set_cursor(0, { end_row + 1, end_col - 1 })
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
       else
