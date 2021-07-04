@@ -70,6 +70,11 @@ function M.nodes()
         local start_row, start_col, end_row, end_col = node:range()
         api.nvim_win_set_cursor(0, { start_row + 1, start_col })
         vim.cmd('normal! v')
+        local max_row = api.nvim_buf_line_count(0)
+        if max_row == end_row then
+          end_row = end_row - 1
+          end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
+        end
         api.nvim_win_set_cursor(0, { end_row + 1, end_col - 1 })
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
