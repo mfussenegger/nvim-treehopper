@@ -2,16 +2,45 @@ local api = vim.api
 local M = {}
 local ns = api.nvim_create_namespace('me.tsnode')
 
+M.config = {hint_keys = {}}
 
 local function keys_iter()
-  local i = 96
+  local i = 0
+  local len = #M.config.hint_keys
   return function()
     -- This won't work if there are too many nodes
-    i = i + 1
-    if i > 122 then
-      i = 65
+    while true do
+      i = i + 1
+      if i <= len then
+        return M.config.hint_keys[i]
+      elseif (i - len) <= 26 then
+        local c = string.char(i + 96)
+
+        local k = true
+        -- Skip already used hint_keys
+        for _, v in ipairs(M.config.hint_keys) do
+          if v == c then
+            k = false
+            break
+          end
+        end
+
+        if k then return c end
+      else
+        local c = string.char(i + 65 - 27)
+
+        local k = true
+        -- Skip already used hint_keys
+        for _, v in ipairs(M.config.hint_keys) do
+          if v == c then
+            k = false
+            break
+          end
+        end
+
+        if k then return c end
+      end
     end
-    return string.char(i)
   end
 end
 

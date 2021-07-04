@@ -35,6 +35,12 @@ omap     <silent> m :<C-U>lua require('tsht').nodes()<CR>
 vnoremap <silent> m :lua require('tsht').nodes()<CR>
 ```
 
+You can configure which keys are used for hint labels, the first N characters will be taken from the `hint_keys` and then after that it will restart from `a-zA-Z`
+
+```
+require("tsht").config.hint_keys = { "h", "j", "f", "d", "n", "v", "s", "l", "a" }
+```
+
 
 ## Credits
 
