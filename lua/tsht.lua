@@ -49,7 +49,8 @@ function M.nodes()
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
   local ts = vim.treesitter
   local get_query = require('vim.treesitter.query').get_query
-  local query = get_query(vim.bo.filetype, 'locals')
+  local get_parser = require("vim.treesitter").get_parser
+  local query = get_query(get_parser(0)._lang, 'locals')
   if not query then
     print('No locals query for language', vim.bo.filetype)
     return
