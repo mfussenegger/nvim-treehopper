@@ -104,8 +104,15 @@ function M.nodes()
         if max_row == end_row then
           end_row = end_row - 1
           end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
+        elseif end_col == 0 then
+          -- If the end points to the start of the next line, move it to the
+          -- end of the previous line.
+          -- Otherwise operations include the first character of the next line
+          local end_line = api.nvim_buf_get_lines(0, end_row - 1, end_row, true)[1]
+          end_row = end_row - 1
+          end_col = #end_line
         end
-        api.nvim_win_set_cursor(0, { end_row + 1, end_col - 1 })
+        api.nvim_win_set_cursor(0, { end_row + 1, math.max(0, end_col - 1) })
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
       else
