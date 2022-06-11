@@ -47,15 +47,15 @@ end
 
 function M.nodes()
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
-  local ts = vim.treesitter
   local get_query = require('vim.treesitter.query').get_query
-  local get_parser = require("vim.treesitter").get_parser
-  local query = get_query(get_parser(0)._lang, 'locals')
+  local parsers = require('nvim-treesitter.parsers')
+  local lang = parsers.get_buf_lang(0)
+  local query = get_query(lang, 'locals')
   if not query then
-    print('No locals query for language', vim.bo.filetype)
+    print('No locals query for language', lang)
     return
   end
-  local parser = ts.get_parser(0)
+  local parser = parsers.get_parser(0)
   local trees = parser:parse()
   local root = trees[1]:root()
   local lnum, col = unpack(api.nvim_win_get_cursor(0))
