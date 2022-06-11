@@ -47,20 +47,14 @@ end
 
 function M.nodes()
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
-  local get_query = require('vim.treesitter.query').get_query
   local parsers = require('nvim-treesitter.parsers')
   local lang = parsers.get_buf_lang(0)
-  local query = get_query(lang, 'locals')
-  if not query then
+  local has_locals = require('nvim-treesitter.query').has_query_files(lang, 'locals')
+  if not has_locals then
     print('No locals query for language', lang)
     return
   end
-  local parser = parsers.get_parser(0)
-  local trees = parser:parse()
-  local root = trees[1]:root()
-  local lnum, col = unpack(api.nvim_win_get_cursor(0))
-  lnum = lnum - 1
-  local cursor_node = root:descendant_for_range(lnum, col, lnum, col)
+  local cursor_node = require('nvim-treesitter.ts_utils').get_node_at_cursor(0)
   local iter = keys_iter()
   local hints = {}
   local win_info = vim.fn.getwininfo(api.nvim_get_current_win())[1]
