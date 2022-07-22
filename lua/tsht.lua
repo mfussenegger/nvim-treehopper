@@ -2,7 +2,7 @@ local api = vim.api
 local M = {}
 local ns = api.nvim_create_namespace('me.tsnode')
 
-M.config = {hint_keys = {}}
+M.config = {hint_keys = {}, ft_to_parser = {}}
 
 local function keys_iter()
   local i = 0
@@ -49,13 +49,14 @@ function M.nodes()
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
   local ts = vim.treesitter
   local get_query = require('vim.treesitter.query').get_query
-  local get_parser = require("vim.treesitter").get_parser
-  local query = get_query(get_parser(0)._lang, 'locals')
+  local filetype = api.nvim_buf_get_option(0, 'filetype')
+  local resolved_filetype =  M.config.ft_to_parser[filetype]
+  local parser = ts.get_parser(0, resolved_filetype)
+  local query = get_query(parser._lang, 'locals')
   if not query then
     print('No locals query for language', vim.bo.filetype)
     return
   end
-  local parser = ts.get_parser(0)
   local trees = parser:parse()
   local root = trees[1]:root()
   local lnum, col = unpack(api.nvim_win_get_cursor(0))
