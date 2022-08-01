@@ -1,28 +1,33 @@
-# TSHT (Treesitter hint textobject)
+# Treehopper 🐇
 
+Syntax trees + hop = Treehopper
 
-Plugin that provides region selection using hints on the abstract syntax tree of a document.
-This is intended to be used for pending operator mappings.
+A Plugin that provides region selection using hints on the abstract syntax tree of a document.
 
 ![Demo](https://user-images.githubusercontent.com/38700/121786551-b5d92b80-cbc0-11eb-81f4-180e6d4c71e3.gif)
 
 
 ## Requirements
 
-- Requires [Neovim HEAD/Nightly][1]
-- A treesitter parser for each language you plan to use the plugin with.
-  - Parsers can be installed via [nvim-treesitter][4] `TSInstall`
-  - For manual installation, you need to compile the language specific parsers using `gcc` and place the object files into `~/.config/nvim/parser`.
-- `locals` queries for each language you plan to use the plugin with.
-  - [nvim-treesitter][4] ships locals queries for many languages. If you've it installed they'll be picked up.
-  - You can install them manually by placing `locals.scm` query files into `~/.config/nvim/queries/<language>/`
+- Neovim 0.7.2+
+
+Treehopper operates on syntax trees. It uses tree-sitter to retrieve the tree
+if a parser is available, otherwise it tries to use the built-in LSP client in
+Neovim (using the `selectionRange` functionality).
+
+You can install tree-sitter parsers either via:
+
+- [nvim-treesitter][4] `TSInstall`
+- Manually: You need to download and compile the language specific parsers
+  using `gcc` and place the object files into `~/.config/nvim/parser`. See
+  http://tree-sitter.github.io/tree-sitter/
 
 
 ## Installation
 
-- nvim-ts-hint-textobject is a plugin. Install it like any other neovim plugin:
-  - If using [vim-plug][2]: `Plug mfussenegger/nvim-ts-hint-textobject`
-  - If using [packer.nvim][3]: `use mfussenegger/nvim-ts-hint-textobject`
+- Install it like any other neovim plugin:
+  - If using [vim-plug][2]: `Plug mfussenegger/nvim-treehopper`
+  - If using [packer.nvim][3]: `use mfussenegger/nvim-treehopper`
 
 
 ## Usage
