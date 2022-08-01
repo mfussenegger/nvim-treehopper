@@ -45,31 +45,106 @@ local function keys_iter()
 end
 
 
-function M.nodes()
-  api.nvim_buf_clear_namespace(0, ns, 0, -1)
-  local ts = vim.treesitter
-  local get_query = require('vim.treesitter.query').get_query
-  local get_parser = require("vim.treesitter").get_parser
-  local query = get_query(get_parser(0)._lang, 'locals')
-  if not query then
-    print('No locals query for language', vim.bo.filetype)
-    return
+local function co_resume(co)
+  return function(err, response)
+    coroutine.resume(co, err, response)
   end
-  local parser = ts.get_parser(0)
+end
+
+
+local function lsp_selection_ranges()
+  local lnum, col = unpack(api.nvim_win_get_cursor(0))
+  local line = api.nvim_get_current_line()
+  local bufnr = api.nvim_get_current_buf()
+  local co = coroutine.running()
+  local nodes = {}
+  local numSupported = 0
+  for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+    if client.server_capabilities.selectionRangeProvider then
+      numSupported = numSupported + 1
+      local character = client.offset_encoding == 'utf-16' and vim.str_byteindex(line, col, true) or col
+      local params = {
+        textDocument = {
+          uri = vim.uri_from_bufnr(bufnr)
+        },
+        positions = {
+          { line = lnum - 1, character = character }
+        }
+      }
+      local ok = client.request('textDocument/selectionRange', params, co_resume(co), bufnr)
+      if ok then
+        local err, response = coroutine.yield()
+        assert(not err, vim.inspect(err))
+        if response then
+          local parent = response[1]
+          while parent do
+            local range = parent.range
+            table.insert(nodes, {
+              range.start.line,
+              range.start.character,
+              range['end'].line,
+              range['end'].character
+            })
+            parent = parent.parent
+          end
+        end
+      end
+    end
+  end
+  assert(numSupported > 0, "No language servers support selectionRange")
+  return nodes
+end
+
+
+local function ts_parents_from_cursor()
+  local parser = vim.treesitter.get_parser(0)
   local trees = parser:parse()
   local root = trees[1]:root()
   local lnum, col = unpack(api.nvim_win_get_cursor(0))
-  lnum = lnum - 1
-  local cursor_node = root:descendant_for_range(lnum, col, lnum, col)
+  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1)
+  local nodes = {{cursor_node:range()}}
+  local parent = cursor_node:parent()
+  while parent do
+    local start_row, start_col, end_row, end_col = parent:range()
+    table.insert(nodes, { start_row, start_col, end_row, end_col })
+    parent = parent:parent()
+  end
+  return nodes
+end
+
+
+local function get_nodes(opts)
+  local nodes
+  if opts.source then
+    return opts.source()
+  else
+    local ok
+    ok, nodes = pcall(ts_parents_from_cursor)
+    if ok then
+      return nodes
+    else
+      return lsp_selection_ranges()
+    end
+  end
+end
+
+
+local function region(opts)
+  api.nvim_buf_clear_namespace(0, ns, 0, -1)
+  opts = opts or {}
+  local nodes = get_nodes(opts)
   local iter = keys_iter()
   local hints = {}
   local win_info = vim.fn.getwininfo(api.nvim_get_current_win())[1]
   for i = win_info.topline, win_info.botline do
     api.nvim_buf_add_highlight(0, ns, 'TSNodeUnmatched', i - 1, 0, -1)
   end
-  local function register_node(node)
+  for _, node in pairs(nodes) do
     local key = iter()
-    local start_row, start_col, end_row, end_col = node:range()
+    local start_row = node[1]
+    local start_col = node[2]
+    local end_row = node[3]
+    local end_col = node[4]
     api.nvim_buf_set_extmark(0, ns, start_row, start_col, {
       virt_text = {{key, 'TSNodeKey'}},
       virt_text_pos = 'overlay'
@@ -79,12 +154,6 @@ function M.nodes()
       virt_text_pos = 'overlay'
     })
     hints[key] = node
-  end
-  register_node(cursor_node)
-  local parent = cursor_node:parent()
-  while parent do
-    register_node(parent)
-    parent = parent:parent()
   end
   vim.cmd('redraw')
   while true do
@@ -97,7 +166,7 @@ function M.nodes()
       local key = string.char(keynum)
       local node = hints[key]
       if node then
-        local start_row, start_col, end_row, end_col = node:range()
+        local start_row, start_col, end_row, end_col = unpack(node)
         api.nvim_win_set_cursor(0, { start_row + 1, start_col })
         vim.cmd('normal! v')
         local max_row = api.nvim_buf_line_count(0)
@@ -122,6 +191,13 @@ function M.nodes()
       end
     end
   end
+end
+
+function M.nodes(opts)
+  local run = coroutine.wrap(function()
+    region(opts)
+  end)
+  run()
 end
 
 
