@@ -28,6 +28,8 @@ This is intended to be used for pending operator mappings.
 ## Usage
 
 
+### Selecting a region
+
 Define two mapppings:
 
 ```
@@ -40,6 +42,16 @@ You can configure which keys are used for hint labels, the first N characters wi
 ```
 require("tsht").config.hint_keys = { "h", "j", "f", "d", "n", "v", "s", "l", "a" }
 ```
+
+### Moving
+
+Moving depends on [hop.nvim][5]
+
+If you want to move to the start or end of a syntax node you can use
+`require('tsht').move({ side = "start" })`.
+
+The parameter is optional and defaults to `start`. Use `side = "end"` if you
+want to move to the end of a node.
 
 
 ## Credits
