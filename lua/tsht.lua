@@ -1,3 +1,5 @@
+---@mod tsht Syntax trees + hop = treehopper
+
 local api = vim.api
 local M = {}
 local ns = api.nvim_create_namespace('me.tsnode')
@@ -129,6 +131,33 @@ local function get_nodes(opts)
 end
 
 
+local function node_start(node)
+  return { line = node[1], column = node[2] + 1, window = 0 }
+end
+
+local function node_end(node)
+  return { line = node[3], column = node[4], window = 0 }
+end
+
+
+local function move(opts)
+  local ok, hop = pcall(require, 'hop')
+  if not ok then
+    vim.notify('move requires the "hop" plugin', vim.log.levels.WARN)
+    return
+  end
+  opts = opts or {}
+  local nodes = get_nodes(opts)
+  local transform = (opts.side or 'start') == 'start' and node_start or node_end
+  local gen = function()
+    return {
+      jump_targets = vim.tbl_map(transform, nodes)
+    }
+  end
+  hop.hint_with(gen)
+end
+
+
 local function region(opts)
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
   opts = opts or {}
@@ -193,11 +222,22 @@ local function region(opts)
   end
 end
 
+
 function M.nodes(opts)
   local run = coroutine.wrap(function()
     region(opts)
   end)
   run()
+end
+
+
+--- Move to the start or end of a node
+--- This requires https://github.com/phaazon/hop.nvim
+---
+---@param opts table|nil
+--- - side "start"|"end"|nil defaults to "start"
+function M.move(opts)
+  coroutine.wrap(function() move(opts) end)()
 end
 
 
