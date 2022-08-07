@@ -98,8 +98,28 @@ local function lsp_selection_ranges()
 end
 
 
+local function get_parser(bufnr)
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr)
+  local err
+  if ok then
+    return parser
+  else
+    err = parser
+  end
+  if string.find(vim.bo.filetype, '%.') then
+    for ft in string.gmatch(vim.bo.filetype, '([^.]+)') do
+      ok, parser = pcall(vim.treesitter.get_parser, bufnr, ft)
+      if ok then
+        return parser
+      end
+    end
+  end
+  error(err)
+end
+
+
 local function ts_parents_from_cursor()
-  local parser = vim.treesitter.get_parser(0)
+  local parser = get_parser(0)
   local trees = parser:parse()
   local root = trees[1]:root()
   local lnum, col = unpack(api.nvim_win_get_cursor(0))
