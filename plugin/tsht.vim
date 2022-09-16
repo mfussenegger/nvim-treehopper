@@ -9,4 +9,7 @@ function s:setup_highlights()
 endfunction
 
 call s:setup_highlights()
-autocmd ColorScheme * call s:setup_highlights()
+augroup TreehopperHighlight
+    autocmd!
+    autocmd ColorScheme * call s:setup_highlights()
+augroup end
