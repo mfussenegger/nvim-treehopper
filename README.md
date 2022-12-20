@@ -35,7 +35,7 @@ You can install tree-sitter parsers either via:
 
 ### Selecting a region
 
-Define two mapppings:
+Define two mappings:
 
 ```
 omap     <silent> m :<C-U>lua require('tsht').nodes()<CR>
