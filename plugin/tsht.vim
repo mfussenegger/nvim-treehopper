@@ -4,7 +4,7 @@ endif
 let g:nvim_ts_hint_textobject = 1
 
 function s:setup_highlights()
-  hi! link TSNodeUnmatched Comment
+  hi def link TSNodeUnmatched Comment
   hi! def TSNodeKey gui=reverse cterm=reverse
 endfunction
 
