@@ -118,20 +118,45 @@ local function get_parser(bufnr)
 end
 
 
-local function ts_parents_from_cursor()
-  local parser = get_parser(0)
-  local trees = parser:parse()
-  local root = trees[1]:root()
-  local lnum, col = unpack(api.nvim_win_get_cursor(0))
-  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1)
-  local nodes = {{cursor_node:range()}}
-  local parent = cursor_node:parent()
+local function insert_parent_ranges(ranges, node)
+  table.insert(ranges, { node:range() })
+  local parent = node:parent()
   while parent do
-    local start_row, start_col, end_row, end_col = parent:range()
-    table.insert(nodes, { start_row, start_col, end_row, end_col })
+    table.insert(ranges, { parent:range() })
     parent = parent:parent()
   end
-  return nodes
+end
+
+
+local function ts_parents_from_cursor(opts)
+  local injection = opts and opts.ignore_injections == false or false
+  local parser = get_parser(0)
+  local lnum, col = unpack(api.nvim_win_get_cursor(0))
+
+  local node_id, ranges = nil, {}
+
+  -- assume parser injection
+  if injection then
+    local node = vim.treesitter.get_node_at_pos(0, lnum - 1, col, {lang = lang, ignore_injections = false})
+    if node ~= nil then
+      node_id = node:id()
+      insert_parent_ranges(ranges, node)
+    end
+  end
+
+  -- ignore parser injection
+  local trees = parser:parse()
+  local root = trees[1]:root()
+  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1)
+
+  -- if assumed injection is absent, return current list of the nodes
+  if injection and cursor_node:id() == node_id then
+    return ranges
+  end
+
+  -- insert parent nodes of cursor_node
+  insert_parent_ranges(ranges, cursor_node)
+  return ranges
 end
 
 
@@ -141,7 +166,7 @@ local function get_nodes(opts)
     return opts.source()
   else
     local ok
-    ok, nodes = pcall(ts_parents_from_cursor)
+    ok, nodes = pcall(ts_parents_from_cursor, opts)
     if ok then
       return nodes
     else
