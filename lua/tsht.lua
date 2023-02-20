@@ -268,6 +268,10 @@ local function region(opts)
 end
 
 
+--- Visual selection on a node
+---
+---@param opts table|nil
+--- - ignore_injections boolean|nil defaults to true
 function M.nodes(opts)
   local run = coroutine.wrap(function()
     region(opts)
@@ -281,6 +285,7 @@ end
 ---
 ---@param opts table|nil
 --- - side "start"|"end"|nil defaults to "start"
+--- - ignore_injections boolean|nil defaults to true
 function M.move(opts)
   coroutine.wrap(function() move(opts) end)()
 end
