@@ -99,7 +99,10 @@ end
 
 
 local function get_parser(bufnr)
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr)
+  local has_lang, lang = pcall(function()
+    return require("nvim-treesitter.parsers").ft_to_lang(vim.bo.filetype)
+  end)
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, has_lang and lang or nil)
   local err
   if ok then
     return parser
