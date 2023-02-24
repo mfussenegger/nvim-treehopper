@@ -127,6 +127,14 @@ local function insert_parent_ranges(ranges, node)
   end
 end
 
+local function get_node(opts)
+  if vim.treesitter.get_node then
+    return vim.treesitter.get_node(opts)
+  end
+  return vim.treesitter.get_node_at_pos(
+    opts.bufnf, opts.pos[1], opts.pos[2], { ignore_injections = opts.ignore_injections }
+  )
+end
 
 local function ts_parents_from_cursor(opts)
   local injection = opts and opts.ignore_injections == false or false
@@ -137,7 +145,7 @@ local function ts_parents_from_cursor(opts)
 
   -- assume parser injection
   if injection then
-    local node = vim.treesitter.get_node_at_pos(0, lnum - 1, col, {lang = lang, ignore_injections = false})
+    local node = get_node({ bufnr = 0, pos = {lnum - 1, col}, ignore_injections = false })
     if node ~= nil then
       node_id = node:id()
       insert_parent_ranges(ranges, node)
