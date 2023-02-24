@@ -135,7 +135,7 @@ local function get_node(opts)
     return vim.treesitter.get_node(opts)
   end
   return vim.treesitter.get_node_at_pos(
-    opts.bufnf, opts.pos[1], opts.pos[2], { ignore_injections = opts.ignore_injections }
+    opts.bufnr, opts.pos[1], opts.pos[2], { ignore_injections = opts.ignore_injections }
   )
 end
 
