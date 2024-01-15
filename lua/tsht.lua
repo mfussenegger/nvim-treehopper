@@ -2,9 +2,9 @@
 
 local api = vim.api
 local M = {}
-local ns = api.nvim_create_namespace('me.tsnode')
+local ns = api.nvim_create_namespace("me.tsnode")
 
-M.config = {hint_keys = {}}
+M.config = { hint_keys = {} }
 
 local function keys_iter()
   local i = 0
@@ -27,7 +27,9 @@ local function keys_iter()
           end
         end
 
-        if k then return c end
+        if k then
+          return c
+        end
       else
         local c = string.char(i + 65 - 27)
 
@@ -40,19 +42,19 @@ local function keys_iter()
           end
         end
 
-        if k then return c end
+        if k then
+          return c
+        end
       end
     end
   end
 end
-
 
 local function co_resume(co)
   return function(err, response)
     coroutine.resume(co, err, response)
   end
 end
-
 
 local function lsp_selection_ranges()
   local lnum, col = unpack(api.nvim_win_get_cursor(0))
@@ -64,16 +66,16 @@ local function lsp_selection_ranges()
   for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
     if client.server_capabilities.selectionRangeProvider then
       numSupported = numSupported + 1
-      local character = client.offset_encoding == 'utf-16' and vim.str_byteindex(line, col, true) or col
+      local character = client.offset_encoding == "utf-16" and vim.str_byteindex(line, col, true) or col
       local params = {
         textDocument = {
-          uri = vim.uri_from_bufnr(bufnr)
+          uri = vim.uri_from_bufnr(bufnr),
         },
         positions = {
-          { line = lnum - 1, character = character }
-        }
+          { line = lnum - 1, character = character },
+        },
       }
-      local ok = client.request('textDocument/selectionRange', params, co_resume(co), bufnr)
+      local ok = client.request("textDocument/selectionRange", params, co_resume(co), bufnr)
       if ok then
         local err, response = coroutine.yield()
         assert(not err, vim.inspect(err))
@@ -84,8 +86,8 @@ local function lsp_selection_ranges()
             table.insert(nodes, {
               range.start.line,
               range.start.character,
-              range['end'].line,
-              range['end'].character
+              range["end"].line,
+              range["end"].character,
             })
             parent = parent.parent
           end
@@ -96,7 +98,6 @@ local function lsp_selection_ranges()
   assert(numSupported > 0, "No language servers support selectionRange")
   return nodes
 end
-
 
 local function get_parser(bufnr)
   local has_lang, lang = pcall(function()
@@ -109,8 +110,8 @@ local function get_parser(bufnr)
   else
     err = parser
   end
-  if string.find(vim.bo.filetype, '%.') then
-    for ft in string.gmatch(vim.bo.filetype, '([^.]+)') do
+  if string.find(vim.bo.filetype, "%.") then
+    for ft in string.gmatch(vim.bo.filetype, "([^.]+)") do
       ok, parser = pcall(vim.treesitter.get_parser, bufnr, ft)
       if ok then
         return parser
@@ -119,7 +120,6 @@ local function get_parser(bufnr)
   end
   error(err)
 end
-
 
 local function insert_parent_ranges(ranges, node)
   table.insert(ranges, { node:range() })
@@ -135,7 +135,10 @@ local function get_node(opts)
     return vim.treesitter.get_node(opts)
   end
   return vim.treesitter.get_node_at_pos(
-    opts.bufnr, opts.pos[1], opts.pos[2], { ignore_injections = opts.ignore_injections }
+    opts.bufnr,
+    opts.pos[1],
+    opts.pos[2],
+    { ignore_injections = opts.ignore_injections }
   )
 end
 
@@ -148,7 +151,7 @@ local function ts_parents_from_cursor(opts)
 
   -- assume parser injection
   if injection then
-    local node = get_node({ bufnr = 0, pos = {lnum - 1, col}, ignore_injections = false })
+    local node = get_node({ bufnr = 0, pos = { lnum - 1, col }, ignore_injections = false })
     if node ~= nil then
       node_id = node:id()
       insert_parent_ranges(ranges, node)
@@ -170,7 +173,6 @@ local function ts_parents_from_cursor(opts)
   return ranges
 end
 
-
 local function get_nodes(opts)
   local nodes
   if opts.source then
@@ -186,7 +188,6 @@ local function get_nodes(opts)
   end
 end
 
-
 local function node_start(node)
   return { line = node[1], column = node[2] + 1, window = 0 }
 end
@@ -195,24 +196,22 @@ local function node_end(node)
   return { line = node[3], column = node[4], window = 0 }
 end
 
-
 local function move(opts)
-  local ok, hop = pcall(require, 'hop')
+  local ok, hop = pcall(require, "hop")
   if not ok then
     vim.notify('move requires the "hop" plugin', vim.log.levels.WARN)
     return
   end
   opts = opts or {}
   local nodes = get_nodes(opts)
-  local transform = (opts.side or 'start') == 'start' and node_start or node_end
+  local transform = (opts.side or "start") == "start" and node_start or node_end
   local gen = function()
     return {
-      jump_targets = vim.tbl_map(transform, nodes)
+      jump_targets = vim.tbl_map(transform, nodes),
     }
   end
   hop.hint_with(gen)
 end
-
 
 local function region(opts)
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
@@ -222,7 +221,7 @@ local function region(opts)
   local hints = {}
   local win_info = vim.fn.getwininfo(api.nvim_get_current_win())[1]
   for i = win_info.topline, win_info.botline do
-    api.nvim_buf_add_highlight(0, ns, 'TSNodeUnmatched', i - 1, 0, -1)
+    api.nvim_buf_add_highlight(0, ns, "TSNodeUnmatched", i - 1, 0, -1)
   end
   for _, node in pairs(nodes) do
     local key = iter()
@@ -231,16 +230,16 @@ local function region(opts)
     local end_row = node[3]
     local end_col = node[4]
     api.nvim_buf_set_extmark(0, ns, start_row, start_col, {
-      virt_text = {{key, 'TSNodeKey'}},
-      virt_text_pos = 'overlay'
+      virt_text = { { key, "TSNodeKey" } },
+      virt_text_pos = "overlay",
     })
     api.nvim_buf_set_extmark(0, ns, end_row, end_col, {
-      virt_text = {{key, 'TSNodeKey'}},
-      virt_text_pos = 'overlay'
+      virt_text = { { key, "TSNodeKey" } },
+      virt_text_pos = "overlay",
     })
     hints[key] = node
   end
-  vim.cmd('redraw')
+  vim.cmd("redraw")
   while true do
     local ok, keynum = pcall(vim.fn.getchar)
     if not ok then
@@ -253,11 +252,11 @@ local function region(opts)
       if node then
         local start_row, start_col, end_row, end_col = unpack(node)
         api.nvim_win_set_cursor(0, { start_row + 1, start_col })
-        vim.cmd('normal! v')
+        vim.cmd("normal! v")
         local max_row = api.nvim_buf_line_count(0)
         if max_row == end_row then
           end_row = end_row - 1
-          end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
+          end_col = #api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1]
         elseif end_col == 0 then
           -- If the end points to the start of the next line, move it to the
           -- end of the previous line.
@@ -270,14 +269,13 @@ local function region(opts)
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
       else
-        vim.api.nvim_feedkeys(key, '', true)
+        vim.api.nvim_feedkeys(key, "", true)
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
       end
     end
   end
 end
-
 
 --- Visual selection on a node
 ---
@@ -290,7 +288,6 @@ function M.nodes(opts)
   run()
 end
 
-
 --- Move to the start or end of a node
 --- This requires https://github.com/phaazon/hop.nvim
 ---
@@ -298,8 +295,9 @@ end
 --- - side "start"|"end"|nil defaults to "start"
 --- - ignore_injections boolean|nil defaults to true
 function M.move(opts)
-  coroutine.wrap(function() move(opts) end)()
+  coroutine.wrap(function()
+    move(opts)
+  end)()
 end
-
 
 return M
