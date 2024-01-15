@@ -63,7 +63,7 @@ local function lsp_selection_ranges()
   local co = coroutine.running()
   local nodes = {}
   local numSupported = 0
-  for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+  for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
     if client.server_capabilities.selectionRangeProvider then
       numSupported = numSupported + 1
       local character = client.offset_encoding == "utf-16" and vim.str_byteindex(line, col, true) or col
@@ -134,12 +134,11 @@ local function get_node(opts)
   if vim.treesitter.get_node then
     return vim.treesitter.get_node(opts)
   end
-  return vim.treesitter.get_node_at_pos(
-    opts.bufnr,
-    opts.pos[1],
-    opts.pos[2],
-    { ignore_injections = opts.ignore_injections }
-  )
+  return vim.treesitter.get_node({
+    bufnr = opts.bufnr,
+    pos = { opts.pos[1], opts.pos[2] },
+    ignore_injections = opts.ignore_injections,
+  })
 end
 
 local function ts_parents_from_cursor(opts)
@@ -161,10 +160,10 @@ local function ts_parents_from_cursor(opts)
   -- ignore parser injection
   local trees = parser:parse()
   local root = trees[1]:root()
-  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1)
+  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1, col)
 
   -- if assumed injection is absent, return current list of the nodes
-  if injection and cursor_node:id() == node_id then
+  if injection and cursor_node ~= nil and cursor_node:id() == node_id then
     return ranges
   end
 
