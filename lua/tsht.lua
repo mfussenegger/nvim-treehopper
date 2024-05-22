@@ -61,7 +61,10 @@ local function lsp_selection_ranges()
   local co = coroutine.running()
   local nodes = {}
   local numSupported = 0
-  for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+
+  ---@diagnostic disable-next-line: deprecated
+  local get_clients = vim.lsp.get_clients or vim.lsp.get_active_clients
+  for _, client in ipairs(get_clients({ bufnr = bufnr })) do
     if client.server_capabilities.selectionRangeProvider then
       numSupported = numSupported + 1
       local character = client.offset_encoding == 'utf-16' and vim.str_byteindex(line, col, true) or col
