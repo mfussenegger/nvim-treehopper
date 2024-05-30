@@ -220,6 +220,8 @@ end
 local function region(opts)
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
   opts = opts or {}
+  local region_start = opts.side == nil or opts.side == 'start'
+  local region_end = opts.side == nil or opts.side == 'end'
   local nodes = get_nodes(opts)
   local iter = keys_iter()
   local hints = {}
@@ -233,14 +235,18 @@ local function region(opts)
     local start_col = node[2]
     local end_row = node[3]
     local end_col = node[4]
-    api.nvim_buf_set_extmark(0, ns, start_row, start_col, {
-      virt_text = {{key, 'TSNodeKey'}},
-      virt_text_pos = 'overlay'
-    })
-    api.nvim_buf_set_extmark(0, ns, end_row, end_col, {
-      virt_text = {{key, 'TSNodeKey'}},
-      virt_text_pos = 'overlay'
-    })
+    if region_start then
+      api.nvim_buf_set_extmark(0, ns, start_row, start_col, {
+        virt_text = {{key, 'TSNodeKey'}},
+        virt_text_pos = 'overlay'
+      })
+    end
+    if region_end then
+      api.nvim_buf_set_extmark(0, ns, end_row, end_col, {
+        virt_text = {{key, 'TSNodeKey'}},
+        virt_text_pos = 'overlay'
+      })
+    end
     hints[key] = node
   end
   vim.cmd('redraw')
@@ -255,21 +261,28 @@ local function region(opts)
       local node = hints[key]
       if node then
         local start_row, start_col, end_row, end_col = unpack(node)
-        api.nvim_win_set_cursor(0, { start_row + 1, start_col })
-        vim.cmd('normal! v')
-        local max_row = api.nvim_buf_line_count(0)
-        if max_row == end_row then
-          end_row = end_row - 1
-          end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
-        elseif end_col == 0 then
-          -- If the end points to the start of the next line, move it to the
-          -- end of the previous line.
-          -- Otherwise operations include the first character of the next line
-          local end_line = api.nvim_buf_get_lines(0, end_row - 1, end_row, true)[1]
-          end_row = end_row - 1
-          end_col = #end_line
+        if not region_end then
+          vim.cmd('normal! v')
         end
-        api.nvim_win_set_cursor(0, { end_row + 1, math.max(0, end_col - 1) })
+        if region_start then
+          api.nvim_win_set_cursor(0, { start_row + 1, start_col })
+        end
+        if region_end then
+          vim.cmd('normal! v')
+          local max_row = api.nvim_buf_line_count(0)
+          if max_row == end_row then
+            end_row = end_row - 1
+            end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
+          elseif end_col == 0 then
+            -- If the end points to the start of the next line, move it to the
+            -- end of the previous line.
+            -- Otherwise operations include the first character of the next line
+            local end_line = api.nvim_buf_get_lines(0, end_row - 1, end_row, true)[1]
+            end_row = end_row - 1
+            end_col = #end_line
+          end
+          api.nvim_win_set_cursor(0, { end_row + 1, math.max(0, end_col - 1) })
+        end
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
       else
