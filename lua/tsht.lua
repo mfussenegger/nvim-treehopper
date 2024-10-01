@@ -101,21 +101,35 @@ local function lsp_selection_ranges()
 end
 
 
+---@param bufnr integer
+---@param lang? string
+---@return vim.treesitter.LanguageTree?
+---@return string? error message
+local function _get_parser(bufnr, lang)
+  if vim.fn.has("nvim-0.11") == 1 then
+    return vim.treesitter.get_parser(bufnr, lang, { error = false })
+  end
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, lang)
+  if ok then
+    return parser, nil
+  end
+  return nil, tostring(parser)
+end
+
+
 local function get_parser(bufnr)
   local has_lang, lang = pcall(function()
     return require("nvim-treesitter.parsers").ft_to_lang(vim.bo.filetype)
   end)
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, has_lang and lang or nil)
-  local err
-  if ok then
+  local parser, err = _get_parser(bufnr, has_lang and lang or nil)
+  if parser then
     return parser
-  else
-    err = parser
   end
   if string.find(vim.bo.filetype, '%.') then
     for ft in string.gmatch(vim.bo.filetype, '([^.]+)') do
-      ok, parser = pcall(vim.treesitter.get_parser, bufnr, ft)
-      if ok then
+      local _
+      parser, _ = _get_parser(bufnr, ft)
+      if parser then
         return parser
       end
     end
