@@ -174,8 +174,14 @@ local function ts_parents_from_cursor(opts)
 
   -- ignore parser injection
   local trees = parser:parse()
+  if not trees then
+    return ranges
+  end
   local root = trees[1]:root()
-  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1)
+  local cursor_node = root:descendant_for_range(lnum - 1, col, lnum - 1, col)
+  if not cursor_node then
+    return ranges
+  end
 
   -- if assumed injection is absent, return current list of the nodes
   if injection and cursor_node:id() == node_id then
