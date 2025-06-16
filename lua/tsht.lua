@@ -47,68 +47,60 @@ local function keys_iter()
 end
 
 
-local function co_resume(co)
-  return function(err, response)
-    coroutine.resume(co, err, response)
-  end
-end
-
-
 local function lsp_selection_ranges()
   local lnum, col = unpack(api.nvim_win_get_cursor(0))
   local line = api.nvim_get_current_line()
   local bufnr = api.nvim_get_current_buf()
-  local co = coroutine.running()
-  local nodes = {}
-  local numSupported = 0
 
   ---@diagnostic disable-next-line: deprecated
   local get_clients = vim.lsp.get_clients or vim.lsp.get_active_clients
-  for _, client in ipairs(get_clients({ bufnr = bufnr })) do
-    if client.server_capabilities.selectionRangeProvider then
-      numSupported = numSupported + 1
-      local character
-      if vim.fn.has("nvim-0.11") == 1 then
-        character = vim.str_byteindex(line, client.offset_encoding, col, true)
-      else
-        ---@diagnostic disable-next-line: param-type-mismatch
-        character = client.offset_encoding == 'utf-16' and vim.str_byteindex(line, col, true) or col
-      end
-      local params = {
-        textDocument = {
-          uri = vim.uri_from_bufnr(bufnr)
-        },
-        positions = {
-          { line = lnum - 1, character = character }
-        }
-      }
-      local ok
-      if vim.fn.has("nvim-0.11") == 1 then
-        ok = client:request('textDocument/selectionRange', params, co_resume(co), bufnr)
-      else
-        ---@diagnostic disable-next-line: param-type-mismatch
-        ok = client.request('textDocument/selectionRange', params, co_resume(co), bufnr)
-      end
-      if ok then
-        local err, response = coroutine.yield()
-        assert(not err, vim.inspect(err))
-        if response then
-          local parent = response[1]
-          while parent do
-            local range = parent.range
-            table.insert(nodes, {
-              range.start.line,
-              range.start.character,
-              range['end'].line,
-              range['end'].character
-            })
-            parent = parent.parent
-          end
-        end
+  local method = "textDocument/selectionRange"
+  local clients = get_clients({ bufnr = bufnr, method = method })
+  local num_remaining = #clients
+  assert(num_remaining > 0, "No language servers support selectionRange")
+  local nodes = {}
+
+  local function on_response(err, response)
+    assert(not err, vim.inspect(err))
+    if response then
+      local parent = response[1]
+      while parent do
+        local range = parent.range
+        table.insert(nodes, {
+          range.start.line,
+          range.start.character,
+          range['end'].line,
+          range['end'].character
+        })
+        parent = parent.parent
       end
     end
+    num_remaining = num_remaining - 1
   end
-  assert(numSupported > 0, "No language servers support selectionRange")
+  for _, client in ipairs(clients) do
+    local character
+    if vim.fn.has("nvim-0.11") == 1 then
+      character = vim.str_byteindex(line, client.offset_encoding, col, true)
+    else
+      ---@diagnostic disable-next-line: param-type-mismatch
+      character = client.offset_encoding == 'utf-16' and vim.str_byteindex(line, col, true) or col
+    end
+    local params = {
+      textDocument = {
+        uri = vim.uri_from_bufnr(bufnr)
+      },
+      positions = {
+        { line = lnum - 1, character = character }
+      }
+    }
+    if vim.fn.has("nvim-0.11") == 1 then
+      client:request('textDocument/selectionRange', params, on_response, bufnr)
+    else
+      ---@diagnostic disable-next-line: param-type-mismatch
+      client.request('textDocument/selectionRange', params, on_response, bufnr)
+    end
+  end
+  vim.wait(2000, function() return num_remaining == 0 end)
   return nodes
 end
 
@@ -253,71 +245,69 @@ local function region(opts)
   api.nvim_buf_clear_namespace(0, ns, 0, -1)
   opts = opts or {}
   local nodes = get_nodes(opts)
-  vim.schedule(function()
-    local iter = keys_iter()
-    local hints = {}
-    local win_info = vim.fn.getwininfo(api.nvim_get_current_win())[1]
-    for i = win_info.topline, win_info.botline do
-      api.nvim_buf_add_highlight(0, ns, 'TSNodeUnmatched', i - 1, 0, -1)
+  local iter = keys_iter()
+  local hints = {}
+  local win_info = vim.fn.getwininfo(api.nvim_get_current_win())[1]
+  for i = win_info.topline, win_info.botline do
+    api.nvim_buf_add_highlight(0, ns, 'TSNodeUnmatched', i - 1, 0, -1)
+  end
+  for _, node in pairs(nodes) do
+    local key = iter()
+    local start_row = node[1]
+    local start_col = node[2]
+    local end_row = node[3]
+    local end_col = node[4]
+    api.nvim_buf_set_extmark(0, ns, start_row, start_col, {
+      virt_text = {{key, 'TSNodeKey'}},
+      virt_text_pos = 'overlay'
+    })
+    local ok, err = pcall(api.nvim_buf_set_extmark, 0, ns, end_row, end_col, {
+      virt_text = {{key, 'TSNodeKey'}},
+      virt_text_pos = 'overlay'
+    })
+    if not ok then
+      assert(type(err) == "string")
+      local msg = string.format("err=%s line=%d col=%d", err, end_row, end_col)
+      vim.notify(msg, vim.log.levels.WARN)
     end
-    for _, node in pairs(nodes) do
-      local key = iter()
-      local start_row = node[1]
-      local start_col = node[2]
-      local end_row = node[3]
-      local end_col = node[4]
-      api.nvim_buf_set_extmark(0, ns, start_row, start_col, {
-        virt_text = {{key, 'TSNodeKey'}},
-        virt_text_pos = 'overlay'
-      })
-      local ok, err = pcall(api.nvim_buf_set_extmark, 0, ns, end_row, end_col, {
-        virt_text = {{key, 'TSNodeKey'}},
-        virt_text_pos = 'overlay'
-      })
-      if not ok then
-        assert(type(err) == "string")
-        local msg = string.format("err=%s line=%d col=%d", err, end_row, end_col)
-        vim.notify(msg, vim.log.levels.WARN)
-      end
-      hints[key] = node
+    hints[key] = node
+  end
+  vim.cmd('redraw')
+  while true do
+    local ok, keynum = pcall(vim.fn.getchar)
+    if not ok then
+      api.nvim_buf_clear_namespace(0, ns, 0, -1)
+      break
     end
-    vim.cmd('redraw')
-    while true do
-      local ok, keynum = pcall(vim.fn.getchar)
-      if not ok then
+    if type(keynum) == "number" then
+      local key = string.char(keynum)
+      local node = hints[key]
+      if node then
+        local start_row, start_col, end_row, end_col = unpack(node)
+        api.nvim_win_set_cursor(0, { start_row + 1, start_col })
+        vim.cmd('normal! v')
+        local max_row = api.nvim_buf_line_count(0)
+        if max_row == end_row then
+          end_row = end_row - 1
+          end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
+        elseif end_col == 0 then
+          -- If the end points to the start of the next line, move it to the
+          -- end of the previous line.
+          -- Otherwise operations include the first character of the next line
+          local end_line = api.nvim_buf_get_lines(0, end_row - 1, end_row, true)[1]
+          end_row = end_row - 1
+          end_col = #end_line
+        end
+        api.nvim_win_set_cursor(0, { end_row + 1, math.max(0, end_col - 1) })
+        api.nvim_buf_clear_namespace(0, ns, 0, -1)
+        break
+      else
+        vim.api.nvim_feedkeys(key, '', true)
         api.nvim_buf_clear_namespace(0, ns, 0, -1)
         break
       end
-      if type(keynum) == "number" then
-        local key = string.char(keynum)
-        local node = hints[key]
-        if node then
-          local start_row, start_col, end_row, end_col = unpack(node)
-          api.nvim_win_set_cursor(0, { start_row + 1, start_col })
-          vim.cmd('normal! v')
-          local max_row = api.nvim_buf_line_count(0)
-          if max_row == end_row then
-            end_row = end_row - 1
-            end_col = #(api.nvim_buf_get_lines(0, end_row, end_row + 1, true)[1])
-          elseif end_col == 0 then
-            -- If the end points to the start of the next line, move it to the
-            -- end of the previous line.
-            -- Otherwise operations include the first character of the next line
-            local end_line = api.nvim_buf_get_lines(0, end_row - 1, end_row, true)[1]
-            end_row = end_row - 1
-            end_col = #end_line
-          end
-          api.nvim_win_set_cursor(0, { end_row + 1, math.max(0, end_col - 1) })
-          api.nvim_buf_clear_namespace(0, ns, 0, -1)
-          break
-        else
-          vim.api.nvim_feedkeys(key, '', true)
-          api.nvim_buf_clear_namespace(0, ns, 0, -1)
-          break
-        end
-      end
     end
-  end)
+  end
 end
 
 
@@ -326,10 +316,7 @@ end
 ---@param opts table|nil
 --- - ignore_injections boolean|nil defaults to true
 function M.nodes(opts)
-  local run = coroutine.wrap(function()
-    region(opts)
-  end)
-  run()
+  region(opts)
 end
 
 
@@ -340,7 +327,7 @@ end
 --- - side "start"|"end"|nil defaults to "start"
 --- - ignore_injections boolean|nil defaults to true
 function M.move(opts)
-  coroutine.wrap(function() move(opts) end)()
+  move(opts)
 end
 
 
