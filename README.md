@@ -39,7 +39,7 @@ Define two mappings:
 
 ```
 omap     <silent> m :<C-U>lua require('tsht').nodes()<CR>
-xnoremap <silent> m :lua require('tsht').nodes()<CR>
+xnoremap <silent> m :<C-U>lua require('tsht').nodes()<CR>
 ```
 
 You can configure which keys are used for hint labels, the first N characters will be taken from the `hint_keys` and then after that it will restart from `a-zA-Z`
